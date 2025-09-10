@@ -4,7 +4,7 @@ from utils.recognize_face import recognize_face
 
 if __name__ == "__main__":
     known_faces_dir = "known_faces"   # folder with Alice.jpg, Bob.jpg, etc.
-    test_image_path = "test1.jpeg"    # test image
+    test_image_path = "samples/test1.jpeg"    # test image
 
     print("[STEP] Loading known faces...")
     known_faces = load_known_faces(known_faces_dir, verbose=True)
