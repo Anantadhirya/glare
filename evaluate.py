@@ -6,7 +6,7 @@ from utils.get_embedding import get_embedding
 # ---------------------------
 # Main Demo
 # ---------------------------
-def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7):
+def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
     correct = 0
     total = 0
     cnt = [[0, 0], [0, 0]]
@@ -31,6 +31,9 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7):
         emb1 = get_embedding(Image.open(path1), name=path1)
         emb2 = get_embedding(Image.open(path2), name=path2)
         if emb1 is None or emb2 is None:
+            if verbose:
+                if emb1 is None: print(f"[WARN] No face found in {path1}, skipping.")
+                if emb2 is None: print(f"[WARN] No face found in {path2}, skipping.")
             continue  # skip if detection failed
 
         sim = float(np.dot(emb1, emb2) / 
@@ -41,7 +44,7 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7):
             correct += 1
         total += 1
         cnt[int(is_same)][int(prediction)] += 1
-        if(total % 1000 == 0):
+        if verbose and total % 1000 == 0:
             print(f"Processed {total} pairs...")
 
     accuracy = correct / total if total > 0 else 0
@@ -55,7 +58,7 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7):
 from datetime import datetime
 if __name__ == "__main__":
     start_time = datetime.now()
-    evaluate_lfw("lfw/lfw-deepfunneled", "lfw/pairs.csv", threshold=0.5)
+    evaluate_lfw("lfw/lfw-deepfunneled", "lfw/pairs.csv", threshold=0.5, verbose=True)
     end_time = datetime.now()
     duration = end_time - start_time
     print(f"Evaluation completed in: {duration}")
