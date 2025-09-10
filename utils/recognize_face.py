@@ -6,13 +6,13 @@ def cosine_similarity(a, b):
     """Compute cosine similarity between two vectors."""
     return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
-def recognize_face(image: Image.Image, known_faces, threshold=0.7, top_k=5):
-    """Compare test embedding with known faces and return leaderboard + result."""
+def recognize_face(image: Image.Image, known_faces, threshold=0.7, top_k=5, verbose=False):
+    """Compare test embedding with known faces and return result + leaderboard."""
     leaderboard = []
     test_emb = get_embedding(image)
     if test_emb is None:
-        print("[ERROR] No face detected in test image.")
-        return leaderboard, "Unknown"
+        if verbose: print("[ERROR] No face detected in image.")
+        return "Unknown", leaderboard
 
     for name, emb in known_faces.items():
         sim = cosine_similarity(test_emb, emb)
@@ -27,4 +27,4 @@ def recognize_face(image: Image.Image, known_faces, threshold=0.7, top_k=5):
     else:
         result = "Unknown"
 
-    return leaderboard[:top_k], result
+    return result, leaderboard[:top_k]

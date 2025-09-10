@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     print("[STEP] Processing test image...")
     img = Image.open(test_image_path)
-    leaderboard, result = recognize_face(img, known_faces, threshold=0.7)
+    result, leaderboard = recognize_face(img, known_faces, threshold=0.7, verbose=True)
 
     print("\n=== Leaderboard (cosine similarity) ===")
     for name, score in leaderboard:
