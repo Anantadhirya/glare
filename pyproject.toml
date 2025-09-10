@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "facenet-pytorch>=2.6.0",
     "opencv-python>=4.11.0.86",
+    "paho-mqtt>=2.1.0",
     "pillow>=10.2.0",
     "torch>=2.2.2",
     "torchvision>=0.17.2",
