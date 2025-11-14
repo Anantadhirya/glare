@@ -15,10 +15,12 @@ from utils.load_known_faces import load_known_faces
 # Load environment variables
 load_dotenv()
 
+DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 SUBSCRIBE_TOPIC = os.getenv("MQTT_SUBSCRIBE_TOPIC", "glare/image")
-PUBLISH_TOPIC = os.getenv("MQTT_PUBLISH_TOPIC", "glare/result")
+MQTT_PUBLISH_SHORT_RESULT_TOPIC = os.getenv("MQTT_PUBLISH_SHORT_RESULT_TOPIC", "glare/result")
+MQTT_PUBLISH_COMPLETE_RESULT_TOPIC = os.getenv("MQTT_PUBLISH_COMPLETE_RESULT_TOPIC", "glare/complete_result")
 
 KNOWN_FACES_DIR = os.getenv("KNOWN_FACES_DIR", "known_faces")
 THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.7"))
@@ -37,23 +39,22 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     global known_faces
-    print(f"Received {len(msg.payload)} bytes on {msg.topic}")
+    if DEBUG: print(f"Received {len(msg.payload)} bytes on {msg.topic}")
     
     try:
         image = Image.open(io.BytesIO(msg.payload))
-        print(f"Received image size: {image.size}")
         # image.show()
     except Exception as e:
-        print("Failed to decode image:", e)
+        print("[ERROR] Failed to decode image:", e)
         return
 
-    result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS, verbose=True)
+    result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS)
     payload = {
         "result": result,
         "leaderboard": [{"name": name, "similarity": similarity} for name, similarity in leaderboard]
     }
-    client.publish(PUBLISH_TOPIC, json.dumps(payload))
-    print("Published result:", payload)
+    client.publish(MQTT_PUBLISH_SHORT_RESULT_TOPIC, result)
+    client.publish(MQTT_PUBLISH_COMPLETE_RESULT_TOPIC, json.dumps(payload))
 
 def start_mqtt_client():
     """Start MQTT client in a separate thread."""
@@ -100,12 +101,7 @@ app = FastAPI(
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {
-        "message": "GLARE Face Recognition API",
-        "endpoints": {
-            "recognize_face": "/api/recognize-face (POST)"
-        }
-    }
+    return "GLARE Face Recognition API"
 
 @app.post("/api/recognize-face")
 async def recognize_face_api(file: UploadFile = File(...)):
@@ -128,15 +124,14 @@ async def recognize_face_api(file: UploadFile = File(...)):
         # Read image data
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
-        print(f"API: Received image size: {image.size}")
+        if DEBUG: print(f"API: Received image size: {image.size}")
         
         # Perform recognition
         result, leaderboard = recognize_face(
             image, 
             known_faces, 
             threshold=THRESHOLD, 
-            top_k=TOP_K_RESULTS, 
-            verbose=True
+            top_k=TOP_K_RESULTS,
         )
         
         # Format response
@@ -147,8 +142,6 @@ async def recognize_face_api(file: UploadFile = File(...)):
                 for name, similarity in leaderboard
             ]
         }
-        
-        print("API: Recognition result:", response)
         return JSONResponse(content=response)
         
     except Exception as e:
