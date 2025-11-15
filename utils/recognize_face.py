@@ -1,22 +1,7 @@
 from PIL import Image
 import numpy as np
-import os
-import io
-from dotenv import load_dotenv
-import cloudinary
-import cloudinary.uploader
-from db.config import get_cursor, close_connection
 from utils.get_embedding import get_embedding
-
-# Load environment variables
-load_dotenv()
-
-# Configure Cloudinary
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
-)
+from utils.store_face import store_face
 
 def cosine_similarity(a, b):
     """Compute cosine similarity between two vectors."""
@@ -57,55 +42,22 @@ def recognize_face(image: Image.Image, known_faces: list[tuple[int, str, np.ndar
 
     leaderboard = [(name, sim) for _, name, sim in leaderboard[:top_k]]
 
-    # Store to database
+    # Store to database if below threshold
     if best_score < store_threshold:
-        conn, cursor = None, None
-        try:
-            # Store face to cloudinary, get a public image URL
-            # Convert PIL Image to bytes
-            img_byte_arr = io.BytesIO()
-            face.save(img_byte_arr, format='PNG')
-            img_byte_arr.seek(0)
+        stored_person_id, image_url, stored_emb = store_face(
+            face_image=face,
+            person_id=result_id,
+            embedding=test_emb,
+            verbose=verbose
+        )
+        
+        if stored_person_id is not None:
+            # Update result_id and result if a new person was created
+            if result_id is None:
+                result_id = stored_person_id
+                result = "Unknown"
             
-            # Upload to Cloudinary
-            upload_result = cloudinary.uploader.upload(
-                img_byte_arr,
-                folder="glare/faces",
-                resource_type="image"
-            )
-            image_url = upload_result.get("secure_url")
-            
-            # Store face to database
-            conn, cursor = get_cursor(dict_cursor=False)
-            
-            # if result == Unknown, insert a new Person with name "Unknown"
-            if result_id == None:
-                cursor.execute(
-                    "INSERT INTO persons (name) VALUES (%s) RETURNING id",
-                    ("Unknown",)
-                )
-                result_id = cursor.fetchone()[0]
-            
-            # then insert the face with the new person_id
-            cursor.execute(
-                "INSERT INTO faces (person_id, image_url, embedding, verified) VALUES (%s, %s, %s, %s)",
-                (result_id, image_url, test_emb.tolist(), False)
-            )
-
+            # Add to known_faces for future recognition
             known_faces.append((result_id, result, test_emb))
-            
-            conn.commit()
-            
-            if verbose:
-                print(f"[INFO] Stored face to database with person_id={result_id}, image_url={image_url}")
-                
-        except Exception as e:
-            if verbose:
-                print(f"[ERROR] Failed to store face to database: {e}")
-            if conn:
-                conn.rollback()
-        finally:
-            if conn and cursor:
-                close_connection(conn, cursor)
 
     return result, leaderboard
