@@ -91,6 +91,8 @@ def recognize_face(image: Image.Image, known_faces: list[tuple[int, str, np.ndar
                 "INSERT INTO faces (person_id, image_url, embedding, verified) VALUES (%s, %s, %s, %s)",
                 (result_id, image_url, test_emb.tolist(), False)
             )
+
+            known_faces.append((result_id, result, test_emb))
             
             conn.commit()
             
