@@ -1,19 +1,44 @@
-import os
-from PIL import Image
-from utils.get_embedding import get_embedding
+import numpy as np
+from db.config import get_cursor, close_connection
 
-def load_known_faces(folder_path, verbose=False):
-    """Load one image per person from a folder and return dict of embeddings."""
-    known_faces = {}
-    for file in os.listdir(folder_path):
-        if file.lower().endswith(('.jpg', '.jpeg', '.png')):
-            name = os.path.splitext(file)[0]  # filename without extension
-            path = os.path.join(folder_path, file)
-            img = Image.open(path)
-            emb = get_embedding(img, name=name)
-            if emb is not None:
-                known_faces[name] = emb
-                if verbose: print(f"[INFO] Registered {name}")
-            else:
-                if verbose: print(f"[WARN] No face found in {file}, skipping.")
+def load_known_faces(verbose=False):
+    """
+    Load face embeddings from the database.
+    
+    Args:
+        verbose (bool): If True, print information about loaded faces
+    
+    Returns:
+        list: List of tuples (person_id, person_name, embedding)
+    """
+    known_faces = []
+    conn, cursor = get_cursor()
+    
+    try:
+        # Query verified faces from the database
+        cursor.execute("""
+            SELECT f.person_id, f.embedding, p.name
+            FROM faces f
+            JOIN persons p ON f.person_id = p.id
+        """)
+        
+        rows = cursor.fetchall()
+        
+        for row in rows:
+            person_id = row['person_id']
+            embedding = np.array(row['embedding'], dtype=np.float32)
+            person_name = row['name']
+            
+            # Add tuple to the list
+            known_faces.append((person_id, person_name, embedding))
+            
+            if verbose:
+                print(f"[INFO] Loaded face for person_id={person_id} ({person_name})")
+        
+        if verbose:
+            print(f"[INFO] Total faces loaded: {len(known_faces)}")
+    
+    finally:
+        close_connection(conn, cursor)
+    
     return known_faces

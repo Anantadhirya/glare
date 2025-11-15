@@ -25,6 +25,7 @@ MQTT_PUBLISH_COMPLETE_RESULT_TOPIC = os.getenv("MQTT_PUBLISH_COMPLETE_RESULT_TOP
 KNOWN_FACES_DIR = os.getenv("KNOWN_FACES_DIR", "known_faces")
 THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.7"))
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
+STORE_THRESHOLD = float(os.getenv("STORE_THRESHOLD", "0.85"))
 
 # Global variables
 known_faces = None
@@ -48,7 +49,7 @@ def on_message(client, userdata, msg):
         print("[ERROR] Failed to decode image:", e)
         return
 
-    result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS)
+    result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS, store_threshold=STORE_THRESHOLD, verbose=DEBUG)
     payload = {
         "result": result,
         "leaderboard": [{"name": name, "similarity": similarity} for name, similarity in leaderboard]
@@ -63,11 +64,8 @@ def start_mqtt_client():
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     
-    try:
-        mqtt_client.connect(BROKER, MQTT_PORT, 60)
-        mqtt_client.loop_forever()
-    except Exception as e:
-        print(f"MQTT client error: {e}")
+    mqtt_client.connect(BROKER, MQTT_PORT, 60)
+    mqtt_client.loop_forever()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,7 +74,7 @@ async def lifespan(app: FastAPI):
     
     # Startup
     print("Loading known faces...")
-    known_faces = load_known_faces(KNOWN_FACES_DIR, verbose=True)
+    known_faces = load_known_faces(verbose=DEBUG)
     
     # Start MQTT client in background thread
     print("Starting MQTT client...")
@@ -132,6 +130,8 @@ async def recognize_face_api(file: UploadFile = File(...)):
             known_faces, 
             threshold=THRESHOLD, 
             top_k=TOP_K_RESULTS,
+            store_threshold=STORE_THRESHOLD,
+            verbose=DEBUG
         )
         
         # Format response
@@ -147,6 +147,12 @@ async def recognize_face_api(file: UploadFile = File(...)):
     except Exception as e:
         print(f"API: Error processing image: {e}")
         raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+
+@app.post("/api/reload-known-faces")
+async def reload_known_faces_api():
+    global known_faces
+    known_faces = load_known_faces(verbose=DEBUG)
+    return {"status": "success", "message": "Known faces reloaded"}
 
 if __name__ == "__main__":
     import uvicorn
