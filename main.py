@@ -8,9 +8,11 @@ import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from utils.recognize_face import recognize_face
 from utils.load_known_faces import load_known_faces
+from api.routers import persons, faces
 
 # Load environment variables
 load_dotenv()
@@ -95,6 +97,19 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Include routers
+app.include_router(persons.router)
+app.include_router(faces.router)
 
 @app.get("/")
 async def root():

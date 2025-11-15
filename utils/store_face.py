@@ -19,7 +19,7 @@ cloudinary.config(
 )
 
 
-def store_face(face_image: Image.Image, person_id: int = None, embedding: np.ndarray = None, verbose: bool = False):
+def store_face(face_image: Image.Image, person_id: int = None, embedding: np.ndarray = None, verified: bool = False, verbose: bool = False):
     """
     Store a face image to Cloudinary and database.
     
@@ -27,6 +27,7 @@ def store_face(face_image: Image.Image, person_id: int = None, embedding: np.nda
         face_image: PIL Image of the face
         person_id: ID of the person (if None, creates a new "Unknown" person)
         embedding: Face embedding vector (if None, will compute it)
+        verified: Whether this face should be marked as verified
         verbose: Whether to print debug information
     
     Returns:
@@ -69,7 +70,7 @@ def store_face(face_image: Image.Image, person_id: int = None, embedding: np.nda
         # Insert the face with the person_id
         cursor.execute(
             "INSERT INTO faces (person_id, image_url, embedding, verified) VALUES (%s, %s, %s, %s)",
-            (person_id, image_url, embedding.tolist(), False)
+            (person_id, image_url, embedding.tolist(), verified)
         )
         
         conn.commit()
