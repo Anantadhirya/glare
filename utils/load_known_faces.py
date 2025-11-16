@@ -4,6 +4,7 @@ from db.config import get_cursor, close_connection
 def load_known_faces(verbose=False):
     """
     Load face embeddings from the database.
+    Also deletes persons without any linked faces.
     
     Args:
         verbose (bool): If True, print information about loaded faces
@@ -15,6 +16,17 @@ def load_known_faces(verbose=False):
     conn, cursor = get_cursor()
     
     try:
+        # Delete persons without any linked faces
+        cursor.execute("""
+            DELETE FROM persons
+            WHERE id NOT IN (SELECT DISTINCT person_id FROM faces)
+        """)
+        deleted_count = cursor.rowcount
+        conn.commit()
+        
+        if verbose and deleted_count > 0:
+            print(f"[INFO] Deleted {deleted_count} person(s) without linked faces")
+        
         # Query verified faces from the database
         cursor.execute("""
             SELECT f.person_id, f.embedding, p.name
