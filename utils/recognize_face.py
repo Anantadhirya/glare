@@ -1,7 +1,10 @@
+import os
 from PIL import Image
 import numpy as np
 from utils.get_embedding import get_embedding
 from utils.store_face import store_face
+
+MIN_FACE_SIZE = tuple(map(int, os.getenv("MIN_FACE_SIZE", "50,50").split(',')))
 
 def cosine_similarity(a, b):
     """Compute cosine similarity between two vectors."""
@@ -10,7 +13,7 @@ def cosine_similarity(a, b):
 def recognize_face(image: Image.Image, known_faces: list[tuple[int, str, np.ndarray]], threshold=0.7, top_k=5, store_threshold=-1,verbose=False):
     """Compare test embedding with known faces and return result + leaderboard."""
     leaderboard = []
-    test_emb, face = get_embedding(image, return_face=True)
+    test_emb, face = get_embedding(image, return_face=True, min_face_size=MIN_FACE_SIZE)
 
     if test_emb is None:
         if verbose: print("[ERROR] No face detected in image.")
