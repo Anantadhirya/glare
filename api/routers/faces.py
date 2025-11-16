@@ -298,21 +298,37 @@ async def update_face(face_id: int, face: FaceUpdateRequest):
 
 @router.delete("/{face_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_face(face_id: int):
-    """Delete a face."""
+    """Delete a face and its person if no other faces remain."""
     conn, cursor = None, None
     try:
         conn, cursor = get_cursor()
         
-        # Check if face exists
-        cursor.execute("SELECT id FROM faces WHERE id = %s", (face_id,))
-        if not cursor.fetchone():
+        # Check if face exists and get person_id
+        cursor.execute("SELECT id, person_id FROM faces WHERE id = %s", (face_id,))
+        face_record = cursor.fetchone()
+        if not face_record:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Face with ID {face_id} not found"
             )
         
+        person_id = face_record['person_id']
+        
         # Delete face
         cursor.execute("DELETE FROM faces WHERE id = %s", (face_id,))
+        
+        # Check if person now has 0 faces
+        cursor.execute("""
+            SELECT COUNT(*) as count 
+            FROM faces 
+            WHERE person_id = %s
+        """, (person_id,))
+        count_result = cursor.fetchone()
+        
+        if count_result['count'] == 0:
+            # Delete the person with no faces
+            cursor.execute("DELETE FROM persons WHERE id = %s", (person_id,))
+        
         conn.commit()
         return None
     except HTTPException:
