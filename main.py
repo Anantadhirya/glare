@@ -28,10 +28,35 @@ KNOWN_FACES_DIR = os.getenv("KNOWN_FACES_DIR", "known_faces")
 THRESHOLD = float(os.getenv("RECOGNITION_THRESHOLD", "0.7"))
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
 STORE_THRESHOLD = float(os.getenv("STORE_THRESHOLD", "0.85"))
+CLEAR_DELAY = float(os.getenv("CLEAR_DELAY", "5.0"))
 
 # Global variables
 known_faces = None
 mqtt_client = None
+clear_timer = None
+timer_lock = threading.Lock()
+
+def publish_clear():
+    """Publish <CLEAR> message to result topic after delay."""
+    global mqtt_client
+    if mqtt_client:
+        if DEBUG: print("Publishing <CLEAR> message")
+        mqtt_client.publish(MQTT_PUBLISH_SHORT_RESULT_TOPIC, " ")
+
+def reset_clear_timer():
+    """Reset the clear timer. Cancels any existing timer and starts a new one."""
+    global clear_timer
+    
+    with timer_lock:
+        # Cancel existing timer if any
+        if clear_timer is not None:
+            clear_timer.cancel()
+            if DEBUG: print("Existing clear timer cancelled")
+        
+        # Start new timer
+        clear_timer = threading.Timer(CLEAR_DELAY, publish_clear)
+        clear_timer.start()
+        if DEBUG: print(f"Clear timer reset for {CLEAR_DELAY} seconds")
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -52,12 +77,17 @@ def on_message(client, userdata, msg):
         return
 
     result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS, store_threshold=STORE_THRESHOLD, verbose=DEBUG)
+    if result == None:
+        return
     payload = {
         "result": result,
         "leaderboard": [{"name": name, "similarity": similarity} for name, similarity in leaderboard]
     }
     client.publish(MQTT_PUBLISH_SHORT_RESULT_TOPIC, result)
     client.publish(MQTT_PUBLISH_COMPLETE_RESULT_TOPIC, json.dumps(payload))
+    
+    # Reset the clear timer after publishing result
+    reset_clear_timer()
 
 def start_mqtt_client():
     """Start MQTT client in a separate thread."""

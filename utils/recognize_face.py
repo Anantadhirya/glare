@@ -14,7 +14,7 @@ def recognize_face(image: Image.Image, known_faces: list[tuple[int, str, np.ndar
 
     if test_emb is None:
         if verbose: print("[ERROR] No face detected in image.")
-        return "Unknown", leaderboard
+        return None, []
 
     for id, name, emb in known_faces:
         sim = cosine_similarity(test_emb, emb)
