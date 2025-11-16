@@ -2,6 +2,7 @@ import io
 import json
 import os
 import threading
+import time
 from contextlib import asynccontextmanager
 from PIL import Image
 import paho.mqtt.client as mqtt
@@ -18,6 +19,8 @@ from api.routers import persons, faces
 load_dotenv()
 
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+DEBUG_TIME = os.getenv("DEBUG_TIME", "false").lower() == "true"
+
 BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 SUBSCRIBE_TOPIC = os.getenv("MQTT_SUBSCRIBE_TOPIC", "glare/image")
@@ -66,6 +69,10 @@ def on_connect(client, userdata, flags, rc):
         print("MQTT connection failed:", rc)
 
 def on_message(client, userdata, msg):
+    start_time = None
+    end_time = None
+    if DEBUG_TIME: start_time = time.time()
+    
     global known_faces
     if DEBUG: print(f"Received {len(msg.payload)} bytes on {msg.topic}")
     
@@ -85,6 +92,11 @@ def on_message(client, userdata, msg):
     }
     client.publish(MQTT_PUBLISH_SHORT_RESULT_TOPIC, result)
     client.publish(MQTT_PUBLISH_COMPLETE_RESULT_TOPIC, json.dumps(payload))
+    
+    if DEBUG_TIME:
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Processing time: {elapsed_time:.3f} seconds ({elapsed_time*1000:.1f} ms)")
     
     # Reset the clear timer after publishing result
     reset_clear_timer()
