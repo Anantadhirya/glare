@@ -1,10 +1,11 @@
 import io
 from PIL import Image
 import paho.mqtt.client as mqtt
+import time
 
-BROKER = "localhost"
+BROKER = "mqtt.glare.my.id"
 PORT = 1883
-TOPIC = "glare/image"
+TOPIC = "esp32/cam_0"
 
 client = mqtt.Client()
 client.connect(BROKER, PORT, 60)
@@ -21,4 +22,5 @@ with Image.open("samples/test1.jpeg") as img:
 
 print(f"Sending image ({len(data)} bytes)")
 client.publish(TOPIC, data)
+time.sleep(2)
 client.disconnect()
