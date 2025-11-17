@@ -10,12 +10,16 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
     correct = 0
     total = 0
     cnt = [[0, 0], [0, 0]]
+    global count, print_every
     
     # Cache for embeddings to avoid recomputing
     embedding_cache = {}
 
     with open(pairs_file, 'r') as f:
         lines = f.readlines()[1:]  # skip header line
+
+    if count is not None:
+        lines = lines[:count]
 
     for line in lines:
         parts = line.strip().split(',')
@@ -60,7 +64,7 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
             correct += 1
         total += 1
         cnt[int(is_same)][int(prediction)] += 1
-        if verbose and total % 100 == 0:
+        if verbose and total % print_every == 0:
             print(f"Processed {total} pairs... (cached: {len(embedding_cache)} unique images)")
 
     accuracy = correct / total if total > 0 else 0
@@ -73,10 +77,12 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
     return accuracy
 
 from datetime import datetime
+count = 6000
+print_every = 100
 if __name__ == "__main__":
     start_time = datetime.now()
     evaluate_lfw("lfw/lfw-deepfunneled", "lfw/pairs.csv", threshold=0.5, verbose=True)
     end_time = datetime.now()
     duration = end_time - start_time
     print(f"Evaluation completed in: {duration}")
-    print(f"Average time per pair: {duration.total_seconds() / 6000:.4f} seconds")  # assuming 6000 pairs
+    print(f"Average time per pair: {duration.total_seconds() / count:.4f} seconds")  # assuming 6000 pairs
