@@ -3,6 +3,7 @@ import json
 import os
 import threading
 import time
+import base64
 from contextlib import asynccontextmanager
 from PIL import Image
 import paho.mqtt.client as mqtt
@@ -24,6 +25,7 @@ DEBUG_TIME = os.getenv("DEBUG_TIME", "false").lower() == "true"
 BROKER = os.getenv("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 SUBSCRIBE_TOPIC = os.getenv("MQTT_SUBSCRIBE_TOPIC", "glare/image")
+MQTT_PUBLISH_BASE64_TOPIC = os.getenv("MQTT_PUBLISH_BASE64_TOPIC", "glare/cam_1")
 MQTT_PUBLISH_SHORT_RESULT_TOPIC = os.getenv("MQTT_PUBLISH_SHORT_RESULT_TOPIC", "glare/result")
 MQTT_PUBLISH_COMPLETE_RESULT_TOPIC = os.getenv("MQTT_PUBLISH_COMPLETE_RESULT_TOPIC", "glare/complete_result")
 
@@ -82,6 +84,12 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print("[ERROR] Failed to decode image:", e)
         return
+    
+    # Convert image to base64 and publish
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG")
+    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    client.publish(MQTT_PUBLISH_BASE64_TOPIC, image_base64)
 
     result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS, store_threshold=STORE_THRESHOLD, verbose=DEBUG)
     if result == None:
