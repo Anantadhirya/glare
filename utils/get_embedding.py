@@ -1,16 +1,20 @@
 import torch
 from PIL import Image
-from facenet_pytorch import MTCNN, InceptionResnetV1
 import torch.nn.functional as F
-from torchvision import transforms
+from utils.mtcnn import MTCNN
+from utils.resnet import InceptionResnetV1
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Face detector + aligner - keep_all to get all detection info
-mtcnn = MTCNN(image_size=160, margin=0, device=device, keep_all=False)
+mtcnn = MTCNN(image_size=160, margin=0)
+mtcnn.load_weights('weights/mtcnn/pnet.pt', 'weights/mtcnn/rnet.pt', 'weights/mtcnn/onet.pt')
 
 # Face encoder (pretrained on VGGFace2)
-resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+resnet = InceptionResnetV1()
+state_dict = torch.load('weights/inception_resnet_v1_vggface2.pt', map_location=device)
+state_dict = {k: v for k, v in state_dict.items() if not k.startswith('logits')}
+resnet.load_state_dict(state_dict)
+resnet.eval().to(device)
 
 def get_embedding(img: Image.Image, return_face=False, min_face_size=None):
     """
@@ -45,8 +49,9 @@ def get_embedding(img: Image.Image, return_face=False, min_face_size=None):
     if face is None:
         return None if not return_face else (None, None)
     
+    face_tensor = torch.from_numpy(face).unsqueeze(0).to(device)
     with torch.no_grad():
-        embedding = resnet(face.unsqueeze(0).to(device))
+        embedding = resnet(face_tensor)
     embedding = F.normalize(embedding, p=2, dim=1).cpu().numpy()[0]
 
     if return_face:
