@@ -38,15 +38,13 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
         # Check cache first, compute embedding only if not cached
         if path1 not in embedding_cache:
             emb1 = get_embedding(Image.open(path1))
-            if emb1 is not None:
-                embedding_cache[path1] = emb1
+            embedding_cache[path1] = emb1
         else:
             emb1 = embedding_cache[path1]
             
         if path2 not in embedding_cache:
             emb2 = get_embedding(Image.open(path2))
-            if emb2 is not None:
-                embedding_cache[path2] = emb2
+            embedding_cache[path2] = emb2
         else:
             emb2 = embedding_cache[path2]
         
