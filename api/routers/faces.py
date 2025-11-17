@@ -106,6 +106,56 @@ async def get_unverified_faces_count():
         close_connection(conn, cursor)
 
 
+@router.delete("/unverified/all")
+async def delete_all_unverified_faces():
+    """Delete all unverified faces and their persons if they have no other faces."""
+    conn, cursor = None, None
+    try:
+        conn, cursor = get_cursor()
+        
+        # Get all person_ids that have unverified faces
+        cursor.execute("""
+            SELECT DISTINCT person_id 
+            FROM faces 
+            WHERE verified = FALSE
+        """)
+        person_ids = [row['person_id'] for row in cursor.fetchall()]
+        
+        # Delete all unverified faces
+        cursor.execute("DELETE FROM faces WHERE verified = FALSE")
+        deleted_count = cursor.rowcount
+        
+        # Check each person and delete if they have no remaining faces
+        deleted_persons = 0
+        for person_id in person_ids:
+            cursor.execute("""
+                SELECT COUNT(*) as count 
+                FROM faces 
+                WHERE person_id = %s
+            """, (person_id,))
+            count_result = cursor.fetchone()
+            
+            if count_result['count'] == 0:
+                cursor.execute("DELETE FROM persons WHERE id = %s", (person_id,))
+                deleted_persons += 1
+        
+        conn.commit()
+        return {
+            "deleted_faces": deleted_count,
+            "deleted_persons": deleted_persons,
+            "message": f"Deleted {deleted_count} unverified face(s) and {deleted_persons} person(s)"
+        }
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}"
+        )
+    finally:
+        close_connection(conn, cursor)
+
+
 @router.get("/{face_id}", response_model=FaceDetailResponse)
 async def get_face(face_id: int):
     """Get a single face's details."""
