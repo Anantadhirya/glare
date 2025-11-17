@@ -10,6 +10,9 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
     correct = 0
     total = 0
     cnt = [[0, 0], [0, 0]]
+    
+    # Cache for embeddings to avoid recomputing
+    embedding_cache = {}
 
     with open(pairs_file, 'r') as f:
         lines = f.readlines()[1:]  # skip header line
@@ -28,8 +31,21 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
             path2 = os.path.join(lfw_dir, name2, f"{name2}_{int(idx2):04d}.jpg")
             is_same = False
 
-        emb1 = get_embedding(Image.open(path1), name=path1)
-        emb2 = get_embedding(Image.open(path2), name=path2)
+        # Check cache first, compute embedding only if not cached
+        if path1 not in embedding_cache:
+            emb1 = get_embedding(Image.open(path1))
+            if emb1 is not None:
+                embedding_cache[path1] = emb1
+        else:
+            emb1 = embedding_cache[path1]
+            
+        if path2 not in embedding_cache:
+            emb2 = get_embedding(Image.open(path2))
+            if emb2 is not None:
+                embedding_cache[path2] = emb2
+        else:
+            emb2 = embedding_cache[path2]
+        
         if emb1 is None or emb2 is None:
             if verbose:
                 if emb1 is None: print(f"[WARN] No face found in {path1}, skipping.")
@@ -44,10 +60,11 @@ def evaluate_lfw(lfw_dir, pairs_file, threshold=0.7, verbose=False):
             correct += 1
         total += 1
         cnt[int(is_same)][int(prediction)] += 1
-        if verbose and total % 1000 == 0:
-            print(f"Processed {total} pairs...")
+        if verbose and total % 100 == 0:
+            print(f"Processed {total} pairs... (cached: {len(embedding_cache)} unique images)")
 
     accuracy = correct / total if total > 0 else 0
+    print(f"Total unique images processed: {len(embedding_cache)}")
     print(f"LFW Accuracy @ threshold {threshold}: {accuracy:.4f} ({correct}/{total})")
     print(f"Confusion Matrix:")
     print(f"                Predicted:  Same   Different")
