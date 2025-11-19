@@ -91,6 +91,7 @@ def on_message(client, userdata, msg):
     # Resize image and publish
     buffer = io.BytesIO()
     resized_image = image.resize((120, 160))
+    resized_image = resized_image.convert('L')
     resized_image.save(buffer, format="JPEG")
     client.publish(MQTT_PUBLISH_BASE64_TOPIC, buffer.getvalue())
 
