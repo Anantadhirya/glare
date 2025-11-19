@@ -82,7 +82,7 @@ def on_message(client, userdata, msg):
         image = Image.open(io.BytesIO(msg.payload))
 
         # Rotate 90 degrees counterclockwise
-        image = image.rotate(90, expand=True)
+        rotated_image = image.rotate(90, expand=True)
         # image.show()
     except Exception as e:
         print("[ERROR] Failed to decode image:", e)
@@ -90,12 +90,11 @@ def on_message(client, userdata, msg):
     
     # Resize image and publish
     buffer = io.BytesIO()
-    resized_image = image.resize((120, 160))
-    resized_image = resized_image.convert('L')
+    resized_image = image.resize((160, 120)).convert("L")
     resized_image.save(buffer, format="JPEG")
     client.publish(MQTT_PUBLISH_BASE64_TOPIC, buffer.getvalue())
 
-    result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS, store_threshold=STORE_THRESHOLD, verbose=DEBUG)
+    result, leaderboard = recognize_face(rotated_image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS, store_threshold=STORE_THRESHOLD, verbose=DEBUG)
     if result == None:
         return
     payload = {
