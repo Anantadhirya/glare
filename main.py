@@ -88,11 +88,11 @@ def on_message(client, userdata, msg):
         print("[ERROR] Failed to decode image:", e)
         return
     
-    # Convert image to base64 and publish
+    # Resize image and publish
     buffer = io.BytesIO()
-    image.save(buffer, format="JPEG")
-    image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    client.publish(MQTT_PUBLISH_BASE64_TOPIC, image_base64)
+    resized_image = image.resize((120, 160))
+    resized_image.save(buffer, format="JPEG")
+    client.publish(MQTT_PUBLISH_BASE64_TOPIC, buffer.getvalue())
 
     result, leaderboard = recognize_face(image, known_faces, threshold=THRESHOLD, top_k=TOP_K_RESULTS, store_threshold=STORE_THRESHOLD, verbose=DEBUG)
     if result == None:
