@@ -80,6 +80,9 @@ def on_message(client, userdata, msg):
     
     try:
         image = Image.open(io.BytesIO(msg.payload))
+
+        # Rotate 90 degrees counterclockwise
+        image = image.rotate(90, expand=True)
         # image.show()
     except Exception as e:
         print("[ERROR] Failed to decode image:", e)
